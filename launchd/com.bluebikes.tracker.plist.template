@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  macOS background job for the collector.
+
+  Replace PROJECT_DIR everywhere below with the full path to this project
+  folder, save the result as ~/Library/LaunchAgents/com.bluebikes.tracker.plist,
+  then load it:
+
+      launchctl load ~/Library/LaunchAgents/com.bluebikes.tracker.plist
+
+  On Linux, use cron instead:
+
+      */5 * * * * /usr/bin/python3 PROJECT_DIR/bluebikes.py poll >> PROJECT_DIR/poll.log 2>&1
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.bluebikes.tracker</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>PROJECT_DIR/bluebikes.py</string>
+        <string>poll</string>
+    </array>
+
+    <!-- Run every 300 seconds (5 minutes). -->
+    <key>StartInterval</key>
+    <integer>300</integer>
+
+    <!-- Poll once immediately when the job is loaded. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>PROJECT_DIR/poll.log</string>
+    <key>StandardErrorPath</key>
+    <string>PROJECT_DIR/poll.log</string>
+</dict>
+</plist>

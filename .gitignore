@@ -1,0 +1,13 @@
+# Recorded data and logs — yours, not the project's.
+dock_status.csv
+dock_status.csv.tmp
+dock_chart.html
+poll.log
+
+# Your own station list. Copy stations.example.json to stations.json to start.
+stations.json
+
+node_modules/
+dist/
+*.log
+.DS_Store

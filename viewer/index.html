@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bluebikes dock availability</title>
+    <!-- Manrope and JetBrains Mono, with system fonts behind them so the page
+         still looks right with no internet. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #faf8f4;
+        color: #1a1815;
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: oklch(0.52 0.14 280);
+        text-decoration: none;
+        border-bottom: 1px solid oklch(0.52 0.14 280 / 0.3);
+      }
+      a:hover {
+        color: oklch(0.42 0.15 280);
+        border-bottom-color: oklch(0.42 0.15 280 / 0.6);
+      }
+      button {
+        font-family: inherit;
+      }
+      /* Hover and focus states, which inline styles can't express. */
+      .field:focus {
+        border-color: oklch(0.52 0.14 280);
+        background: #fffdfa;
+      }
+      .btn-add:hover:not(:disabled) {
+        background: oklch(0.42 0.15 280);
+      }
+      .btn-add:disabled {
+        opacity: 0.55;
+        cursor: default;
+      }
+      .chip-x:hover {
+        background: #dfd8c9;
+        color: #3a3730;
+      }
+      .tab:hover {
+        color: #3a3730;
+      }
+      .qmark:hover {
+        color: oklch(0.42 0.15 280);
+        border-color: oklch(0.52 0.14 280);
+      }
+      .row-pick:hover {
+        background: #f4f1ea;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
