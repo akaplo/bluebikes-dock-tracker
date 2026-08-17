@@ -4,15 +4,14 @@
 Usage:
     python3 bluebikes.py poll              # fetch once, append rows to the CSV
     python3 bluebikes.py watch             # poll now, then every 5 minutes forever
-    python3 bluebikes.py chart             # build an SVG/HTML time-series chart
     python3 bluebikes.py stations          # list the stations being tracked
     python3 bluebikes.py stations add S32009 S32011
     python3 bluebikes.py stations remove S32009
     python3 bluebikes.py find "teele"      # search the feed for a station code
 
 Which stations get tracked lives in stations.json, next to this script. The
-chart viewer in viewer/ reads and writes that same file, so a change made in
-either place applies to both.
+viewer in viewer/ reads and writes that same file, so a change made in either
+place applies to both.
 
 Stations are identified by their short_name, like S32009 -- shown as "Site ID"
 when you click a station on bluebikes.com/map. GBFS keys its status feed on an
@@ -34,16 +33,10 @@ from datetime import datetime
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(HERE, "stations.json")
 CSV_PATH = os.path.join(HERE, "dock_status.csv")
-CHART_PATH = os.path.join(HERE, "dock_chart.html")
 
 DEFAULT_GBFS_BASE_URL = "https://gbfs.lyft.com/gbfs/1.1/bos/en"
 
 POLL_SECONDS = 300  # 5 minutes
-
-# --- "empty rate" settings (used by the chart) --------------------------
-# A reading counts as "empty" when bikes available is at or below this. Every
-# reading counts, at any hour of the day.
-EMPTY_THRESHOLD = 0
 
 CSV_FIELDS = [
     "timestamp",         # when we polled (local ISO)
@@ -270,136 +263,6 @@ def find_cmd(args):
               f"({s.get('capacity', '?')} docks)")
 
 
-# ---------------------------------------------------------------------------
-# Charting: build a small SVG line chart, no third-party libraries.
-# ---------------------------------------------------------------------------
-
-COLORS = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c"]
-
-
-def read_rows():
-    if not os.path.exists(CSV_PATH):
-        sys.exit(f"No data yet at {CSV_PATH}. Run `python3 bluebikes.py poll` first.")
-    with open(CSV_PATH, newline="") as f:
-        return list(csv.DictReader(f))
-
-
-def chart():
-    cfg = load_config()
-    tracked = set(cfg["stations"])
-    rows = read_rows()
-    # series[short_name] = list of (datetime, bikes)
-    series = {}
-    labels = {}
-    for r in rows:
-        short = (r.get("short_name") or "").strip().upper()
-        if tracked and short not in tracked:
-            continue  # not tracked any more; leave its history out of the chart
-        try:
-            t = datetime.fromisoformat(r["timestamp"])
-            v = int(r["num_bikes_available"])
-        except (ValueError, TypeError):
-            continue
-        series.setdefault(short, []).append((t, v))
-        labels[short] = f"{short}: {r.get('name') or short}"
-
-    if not series:
-        sys.exit("No usable data points found in the CSV for the tracked stations.")
-
-    # Empty rate per station, across every reading.
-    empty_stats = {}
-    for short, pts in series.items():
-        vals = [v for _, v in pts]
-        n = len(vals)
-        empties = sum(1 for v in vals if v <= EMPTY_THRESHOLD)
-        rate = (empties / n * 100) if n else 0.0
-        empty_stats[short] = (empties, n, rate)
-
-    # Plot geometry.
-    W, H = 900, 460
-    ML, MR, MT, MB = 60, 200, 30, 60
-    plot_w, plot_h = W - ML - MR, H - MT - MB
-
-    all_times = [t for pts in series.values() for t, _ in pts]
-    all_vals = [v for pts in series.values() for _, v in pts]
-    t_min, t_max = min(all_times), max(all_times)
-    v_max = max(max(all_vals), 1)
-    span = (t_max - t_min).total_seconds() or 1
-
-    def x(t):
-        return ML + plot_w * (t - t_min).total_seconds() / span
-
-    def y(v):
-        return MT + plot_h * (1 - v / v_max)
-
-    svg = [f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" '
-           'font-family="system-ui, sans-serif" font-size="12">']
-    svg.append(f'<rect x="0" y="0" width="{W}" height="{H}" fill="white"/>')
-
-    # Y grid + labels (integer ticks).
-    ticks = min(v_max, 6)
-    for i in range(ticks + 1):
-        val = round(v_max * i / ticks)
-        yy = y(val)
-        svg.append(f'<line x1="{ML}" y1="{yy:.1f}" x2="{ML+plot_w}" y2="{yy:.1f}" '
-                   'stroke="#e5e7eb"/>')
-        svg.append(f'<text x="{ML-8}" y="{yy+4:.1f}" text-anchor="end" fill="#6b7280">{val}</text>')
-
-    # X labels (start, middle, end).
-    for frac in (0.0, 0.5, 1.0):
-        tt = t_min.timestamp() + frac * span
-        dt = datetime.fromtimestamp(tt)
-        xx = ML + plot_w * frac
-        svg.append(f'<line x1="{xx:.1f}" y1="{MT}" x2="{xx:.1f}" y2="{MT+plot_h}" stroke="#f3f4f6"/>')
-        svg.append(f'<text x="{xx:.1f}" y="{MT+plot_h+20}" text-anchor="middle" fill="#6b7280">'
-                   f'{dt.strftime("%m/%d %H:%M")}</text>')
-
-    svg.append(f'<text x="{ML}" y="18" fill="#111827" font-weight="600" font-size="15">'
-               'Available bikes over time</text>')
-    svg.append(f'<text x="16" y="{MT+plot_h/2}" fill="#6b7280" transform="rotate(-90 16 {MT+plot_h/2})" '
-               'text-anchor="middle">bikes available</text>')
-
-    # Lines + points + legend.
-    for i, (short, pts) in enumerate(sorted(series.items())):
-        pts.sort()
-        color = COLORS[i % len(COLORS)]
-        d = " ".join(f"{x(t):.1f},{y(v):.1f}" for t, v in pts)
-        svg.append(f'<polyline points="{d}" fill="none" stroke="{color}" stroke-width="2"/>')
-        for t, v in pts:
-            svg.append(f'<circle cx="{x(t):.1f}" cy="{y(v):.1f}" r="2.5" fill="{color}"/>')
-        empties, n, rate = empty_stats[short]
-        ly = MT + 10 + i * 40
-        svg.append(f'<rect x="{ML+plot_w+15}" y="{ly-9}" width="12" height="12" fill="{color}"/>')
-        svg.append(f'<text x="{ML+plot_w+32}" y="{ly+1}" fill="#374151" font-weight="600">{short}</text>')
-        svg.append(f'<text x="{ML+plot_w+32}" y="{ly+17}" fill="#dc2626" font-size="11">'
-                   f'empty {rate:.0f}% ({empties}/{n})</text>')
-
-    svg.append("</svg>")
-    svg_str = "\n".join(svg)
-
-    npoints = sum(len(p) for p in series.values())
-    stat_lines = "".join(
-        f"<li><b>{labels[s]}</b>: empty {empty_stats[s][2]:.0f}% of readings "
-        f"({empty_stats[s][0]} of {empty_stats[s][1]})</li>"
-        for s in sorted(series)
-    )
-    html = f"""<!doctype html>
-<meta charset="utf-8">
-<title>Dock availability</title>
-<body style="margin:24px;font-family:system-ui,sans-serif;color:#111827">
-<h1 style="font-size:18px">Dock availability</h1>
-<p style="color:#6b7280">{npoints} data points · updated {datetime.now().isoformat(timespec="seconds")}</p>
-{svg_str}
-<h2 style="font-size:15px;margin-top:20px">How often the dock was empty</h2>
-<p style="color:#6b7280;margin-top:0">"empty" = {EMPTY_THRESHOLD} or fewer bikes, counting every reading.</p>
-<ul style="line-height:1.6">{stat_lines}</ul>
-</body>
-"""
-    with open(CHART_PATH, "w") as f:
-        f.write(html)
-    print(f"Wrote chart -> {CHART_PATH} ({npoints} points across {len(series)} stations)")
-
-
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "poll"
     args = sys.argv[2:]
@@ -407,8 +270,6 @@ def main():
         poll()
     elif cmd == "watch":
         watch()
-    elif cmd == "chart":
-        chart()
     elif cmd == "stations":
         stations_cmd(args)
     elif cmd == "find":

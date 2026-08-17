@@ -137,7 +137,7 @@ BLUEBIKES_DIR=~/my-bike-data npm run dev
 
 | File / folder     | What it is                                            |
 | ----------------- | ----------------------------------------------------- |
-| `bluebikes.py`    | The collector, and the no-dependency chart.           |
+| `bluebikes.py`    | The collector.                                        |
 | `stations.json`   | Which stations to track, and which feed to read.      |
 | `dock_status.csv` | All recorded readings. This is your permanent data.   |
 | `poll.log`        | Notes from the collector about each reading.          |
