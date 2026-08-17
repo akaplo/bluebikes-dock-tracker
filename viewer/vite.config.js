@@ -6,6 +6,6 @@ import bluebikesApi from "./vite-plugin-bluebikes.js";
 // small /api routes the page uses to read the CSV and edit the station list.
 export default defineConfig({
   plugins: [react(), bluebikesApi()],
-  server: { port: 5273, host: false },
-  preview: { port: 5273, host: false },
+  server: { port: 3000, host: false },
+  preview: { port: 3000, host: false },
 });
