@@ -12,8 +12,10 @@ import stationCodeOnMap from "./assets/station-code-on-map.png";
 import { card, color, fullnessColor, mono, sans, seriesColor, tabular } from "./theme";
 import {
   computeEmptyStats,
+  computeFullStats,
   currentStatus,
   DEFAULT_EMPTY_OPTIONS,
+  DEFAULT_FULL_OPTIONS,
   loadConfig,
   loadData,
   parseCodeInput,
@@ -24,8 +26,8 @@ import {
   type Config,
   type CurrentStatus,
   type DataSet,
-  type EmptyStat,
   type Reading,
+  type RateStat,
   type StationMatch,
 } from "./data";
 
@@ -890,17 +892,19 @@ function ChartCard(props: { data: DataSet; names: Record<string, string> }) {
   );
 }
 
-function EmptyTable(props: { stats: EmptyStat[]; order: string[] }) {
-  const { stats, order } = props;
-  const { threshold } = DEFAULT_EMPTY_OPTIONS;
+function RateTable(props: {
+  title: string;
+  caption: string;
+  stats: RateStat[];
+  order: string[];
+}) {
+  const { title, caption, stats, order } = props;
 
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-        <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>How often the dock was empty</h2>
-        <span style={{ fontSize: 12, color: color.muted }}>
-          "empty" = {threshold} bikes, counting every reading
-        </span>
+        <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{title}</h2>
+        <span style={{ fontSize: 12, color: color.muted }}>{caption}</span>
       </div>
       <div style={{ display: "flex", flexDirection: "column" }}>
         {stats.map((s) => {
@@ -941,7 +945,7 @@ function EmptyTable(props: { stats: EmptyStat[]; order: string[] }) {
                 {s.rate.toFixed(0)}%
               </span>
               <span style={{ ...tabular, fontSize: 12, color: color.muted }}>
-                {s.empties} of {s.total} readings
+                {s.hits} of {s.total} readings
               </span>
             </div>
           );
@@ -1009,7 +1013,8 @@ export default function App() {
     [refresh],
   );
 
-  const stats: EmptyStat[] = useMemo(() => computeEmptyStats(readings), [readings]);
+  const emptyStats: RateStat[] = useMemo(() => computeEmptyStats(readings), [readings]);
+  const fullStats: RateStat[] = useMemo(() => computeFullStats(readings), [readings]);
   const current: CurrentStatus[] = useMemo(() => currentStatus(readings), [readings]);
 
   const page: React.CSSProperties = {
@@ -1104,7 +1109,18 @@ export default function App() {
           <>
             <RightNowBar current={current} />
             <ChartCard data={data} names={names} />
-            <EmptyTable stats={stats} order={data.stations} />
+            <RateTable
+              title="How often the dock was empty"
+              caption={`"empty" = ${DEFAULT_EMPTY_OPTIONS.threshold} bikes, counting every reading`}
+              stats={emptyStats}
+              order={data.stations}
+            />
+            <RateTable
+              title="How often the dock was full"
+              caption={`"full" = ${DEFAULT_FULL_OPTIONS.threshold} open spots, counting every reading`}
+              stats={fullStats}
+              order={data.stations}
+            />
           </>
         )}
 

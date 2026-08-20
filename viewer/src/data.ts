@@ -107,10 +107,12 @@ export function spotsKey(shortName: string): string {
   return `${shortName} spots`;
 }
 
-export interface EmptyStat {
+// One station's count for a "how often" number: how many readings met the
+// test, out of how many readings there were.
+export interface RateStat {
   shortName: string;
   name: string;
-  empties: number;
+  hits: number;
   total: number;
   rate: number; // percent, 0-100
 }
@@ -130,6 +132,16 @@ export interface EmptyOptions {
 }
 
 export const DEFAULT_EMPTY_OPTIONS: EmptyOptions = {
+  threshold: 0,
+};
+
+// Same idea for the "how often was it full" number, counting open docks
+// instead of bikes.
+export interface FullOptions {
+  threshold: number; // open docks at or below this counts as full
+}
+
+export const DEFAULT_FULL_OPTIONS: FullOptions = {
   threshold: 0,
 };
 
@@ -269,29 +281,44 @@ export function currentStatus(readings: Reading[]): CurrentStatus[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function computeEmptyStats(
+// Count, per station, how many readings pass the test.
+function computeRateStats(
   readings: Reading[],
-  opts: EmptyOptions = DEFAULT_EMPTY_OPTIONS,
-): EmptyStat[] {
+  counts: (r: Reading) => boolean,
+): RateStat[] {
   const byStation = new Map<string, Reading[]>();
   for (const r of readings) {
     if (!byStation.has(r.shortName)) byStation.set(r.shortName, []);
     byStation.get(r.shortName)!.push(r);
   }
 
-  const stats: EmptyStat[] = [];
+  const stats: RateStat[] = [];
   for (const [shortName, list] of byStation) {
-    const empties = list.filter((r) => r.bikes <= opts.threshold).length;
+    const hits = list.filter(counts).length;
     const total = list.length;
     stats.push({
       shortName,
       name: list[list.length - 1].name,
-      empties,
+      hits,
       total,
-      rate: total ? (empties / total) * 100 : 0,
+      rate: total ? (hits / total) * 100 : 0,
     });
   }
   return stats.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function computeEmptyStats(
+  readings: Reading[],
+  opts: EmptyOptions = DEFAULT_EMPTY_OPTIONS,
+): RateStat[] {
+  return computeRateStats(readings, (r) => r.bikes <= opts.threshold);
+}
+
+export function computeFullStats(
+  readings: Reading[],
+  opts: FullOptions = DEFAULT_FULL_OPTIONS,
+): RateStat[] {
+  return computeRateStats(readings, (r) => r.docks <= opts.threshold);
 }
 
 // Read the CSV for the given stations. Cache-bust so the newest readings come
